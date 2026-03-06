@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Boletas ARBA - Final</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f9; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { color: #008497; text-align: center; margin-bottom: 10px; }
+        
+        textarea { width: 100%; height: 120px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-family: monospace; font-size: 11px; margin-bottom: 15px; }
+        
+        button.btn-main { background-color: #008497; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 5px; cursor: pointer; display: block; width: 100%; font-weight: bold; }
+        button.btn-main:hover { background-color: #006f80; }
+
+        /* Estilos de las tarjetas de resultado */
+        #results-area { margin-top: 20px; }
+        .result-card { 
+            background: #fff; border: 1px solid #e1e1e1; 
+            padding: 15px; margin-bottom: 15px; border-radius: 8px; 
+            display: grid; grid-template-columns: 2fr 1.5fr 1.5fr 1fr; gap: 10px;
+            align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
+        }
+
+        .info-group strong { display: block; color: #333; font-size: 15px; }
+        .info-group small { color: #666; font-size: 13px; }
+        .info-group .tag { display: inline-block; background: #e0f7fa; color: #006064; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-top: 4px; font-weight: bold; border: 1px solid #b2ebf2; }
+
+        .links-group { display: flex; flex-direction: column; gap: 5px; font-size: 13px; }
+        .links-group a { text-decoration: none; color: #008497; font-weight: bold; display: flex; align-items: center; gap: 5px; }
+        .links-group a:hover { text-decoration: underline; }
+        .links-group span.no-data { color: #aaa; font-style: italic; font-size: 12px; }
+
+        .actions-group { text-align: right; }
+        .btn-view { background-color: #28a745; color: white; border: none; padding: 10px 20px; font-size: 14px; border-radius: 5px; cursor: pointer; transition: 0.2s; white-space: nowrap; }
+        .btn-view:hover { background-color: #218838; }
+
+        .icon-pdf::before { content: "📄 "; }
+        .icon-qr::before { content: "📱 "; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Generador de Vistas Previas</h1>
+    <p style="font-size: 14px; color: #666; text-align: center;">Pega el resultado de Java y presiona procesar.</p>
+
+    <textarea id="inputData" placeholder="Pega aquí el texto que empieza con Cuit: ..."></textarea>
+    <button class="btn-main" onclick="procesarDatos()">Procesar Datos</button>
+
+    <div id="results-area"></div>
+</div>
+
+<!-- Plantilla oculta ARBA -->
+<script type="text/template" id="plantilla-arba">
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <title>Aviso de Deuda</title>
+  <meta http-equiv="" content="text/html; charset=iso-8859-1" />
+  <style type="text/css">
+    body, td, th { font-size: 12px; }
+    .gris { text-align: center; font-weight: bold; background-color: #cccccc; font-family: Arial, sans-serif; }
+    .amarillo { text-align: center; font-weight: bold; background-color: #a2d1db; font-family: Arial, sans-serif; }
+    .blanco { text-align: center; font-weight: bold; background-color: #68b1c4; font-family: Arial, sans-serif; }
+    .datos { height: 28px; }
+  </style>
+</head>
+<body link="#008497" vlink="#008497" alink="#0080FF" leftmargin="0" topmargin="0" marginwidth="0" marginheight="0">
+  <table width="800" border="0" cellspacing="0" cellpadding="0" align="center">
+    <tr><td height="73" colspan="3" valign="top"><p><img src="https://web.arba.gov.ar/imagen/mail.jpg" width="800" height="85" /></p></td></tr>
+    <tr><td height="30" colspan="3"><font color="#FFFFFF" size="4" face="Arial, Helvetica, sans-serif">&nbsp;</font></td></tr>
+    <tr>
+      <td width="405" height="50" valign="top"><p><font face="Arial, Helvetica, sans-serif" size="2"><strong>[nombre]</strong></font></p></td>
+      <td width="395" valign="top"><div align="right"><font size="2" face="Arial, Helvetica, sans-serif"><strong>[cuit]</strong></font></div></td>
+    </tr>
+    <tr><td height="40" colspan="3" bgcolor="#E5E5E5"><div align="center"><font size="4" face="Arial, Helvetica, sans-serif"><strong>IMPUESTO INMOBILIARIO URBANO EDIFICADO</strong></font></div></td></tr>
+    <tr>
+      <td colspan="3">
+        <p align="justify">&nbsp;</p>
+        <p align="justify"><font size="3" face="Arial, Helvetica, sans-serif">Te informamos que el <strong>9 de junio vence la cuota</strong>...</font></p>
+        <p align="justify">&nbsp;</p>
+        <table width="100%" border="0" align="center">
+          <tr bgcolor="#666666">
+            <td width="22%"><div align="center"><font face="Arial, Helvetica, sans-serif" size="2" color="#FFFFFF"><b>Objeto Imponible</b></font></div></td>
+            <td width="20%"><p align="center"><font face="Arial, Helvetica, sans-serif" size="2" color="#FFFFFF"><b>Opciones de pago</b></font></p></td>
+            <td width="20%"><p align="center"><font face="Arial, Helvetica, sans-serif" size="2" color="#FFFFFF"><b>Importe $ </b></font></p></td>
+            <td width="21%"><div align="center"><font face="Arial, Helvetica, sans-serif" size="2" color="#FFFFFF"><b>Descargar boleta </b></font></div></td>
+          </tr>
+          [datos]
+        </table>
+        <p><strong><font size="2" face="Arial, Helvetica, sans-serif">Si ya efectuaste el pago correspondiente, no tomes en cuenta este aviso.</font></strong></p>
+      </td>
+    </tr>
+    <tr><td colspan="3">&nbsp;</td></tr>
+    <tr><td height="50" colspan="3"><font size="3" face="Arial, Helvetica, sans-serif"><strong><a href="https://web.arba.gov.ar/medios-pago" target="_blank">Conocé los medios de pago</a></strong></font></td></tr>
+    <tr><td colspan="3"><div align="center"><img src="https://web.arba.gov.ar/imagen/Pie2021.jpg" width="800" height="70" border="0" /></div></td></tr>
+  </table>
+</body>
+</html>
+</script>
+
+<script>
+    function procesarDatos() {
+        const rawInput = document.getElementById('inputData').value;
+        const resultsArea = document.getElementById('results-area');
+        resultsArea.innerHTML = ""; 
+
+        if (!rawInput.trim()) { alert("Pega los datos primero."); return; }
+
+        const registros = rawInput.split(/(?=Cuit: \d)/g).filter(r => r.trim().length > 0);
+
+        if (registros.length === 0) {
+            resultsArea.innerHTML = "<p style='color:red; text-align:center;'>No se detectaron registros válidos.</p>";
+            return;
+        }
+
+        registros.forEach((registro, index) => {
+            const partes = registro.split('|');
+            if (partes.length < 8) return; 
+
+            const cuitStr = partes[0].trim();
+            const nombre = partes[2].trim();
+            const datosHtml = partes.slice(8).join('|').trim(); 
+
+            // --- CORRECCIÓN AQUÍ ---
+            const tempDiv = document.createElement('div');
+            // Envolvemos en <table> para que el navegador reconozca los <tr> y <td>
+            tempDiv.innerHTML = '<table>' + datosHtml + '</table>';
+
+            // 1. Extraer Objeto(s)
+            // Buscamos todas las celdas grises
+            const celdasGris = tempDiv.querySelectorAll("td.gris");
+            let objetosTexto = [];
+
+            celdasGris.forEach(celda => {
+                 const texto = celda.innerText.trim();
+                 // Descartamos si dice "Débito..." o "Ingresar" (que es el link)
+                 if (texto.includes("Débito") || texto.includes("Ingresar") || texto === "") return;
+                 
+                 // Descartamos si la celda TIENE un link dentro (href)
+                 if (celda.querySelector('a')) return;
+
+                 // Si pasa los filtros, es el objeto
+                 objetosTexto.push(texto);
+            });
+            const objetoDisplay = objetosTexto.length > 0 ? objetosTexto.join(" <br> ") : "No detectado";
+
+            // 2. Links PDF (usamos 'a' genérico y filtramos por contenido del href)
+            const links = tempDiv.querySelectorAll("a");
+            let urlPdf = null;
+            links.forEach(l => {
+                if(l.href.includes("pdfDeuda")) urlPdf = l.href;
+            });
+
+            // 3. Links QR
+            const imgs = tempDiv.querySelectorAll("img");
+            let urlQr = null;
+            imgs.forEach(i => {
+                if(i.src.includes("PagoQR")) urlQr = i.src;
+            });
+
+            // --- Generar HTML de la tarjeta ---
+            const div = document.createElement('div');
+            div.className = 'result-card';
+            
+            const htmlPdf = urlPdf 
+                ? `<a href="${urlPdf}" target="_blank" class="icon-pdf">PDF Boleta</a>` 
+                : `<span class="no-data">Sin PDF</span>`;
+            
+            const htmlQr = urlQr 
+                ? `<a href="${urlQr}" target="_blank" class="icon-qr">Imagen QR</a>` 
+                : `<span class="no-data">Sin QR</span>`;
+
+            div.innerHTML = `
+                <div class="info-group">
+                    <strong>${nombre}</strong>
+                    <small>${cuitStr}</small>
+                </div>
+                
+                <div class="info-group">
+                    <small>Objeto(s):</small>
+                    <div class="tag">${objetoDisplay}</div>
+                </div>
+
+                <div class="links-group">
+                    ${htmlPdf}
+                    ${htmlQr}
+                </div>
+
+                <div class="actions-group">
+                    <button class="btn-view" onclick="abrirBoleta(${index})">Ver Boleta Completa</button>
+                </div>
+            `;
+            
+            div.dataset.nombre = nombre;
+            div.dataset.cuit = cuitStr;
+            div.dataset.html = encodeURIComponent(datosHtml);
+            
+            resultsArea.appendChild(div);
+        });
+    }
+
+    function abrirBoleta(index) {
+        const card = document.querySelectorAll('.result-card')[index];
+        const nombre = card.dataset.nombre;
+        const cuit = card.dataset.cuit;
+        const htmlTabla = decodeURIComponent(card.dataset.html);
+
+        let contenido = document.getElementById('plantilla-arba').innerHTML;
+        contenido = contenido.replace('[nombre]', nombre);
+        contenido = contenido.replace('[cuit]', cuit);
+        contenido = contenido.replace('[datos]', htmlTabla);
+
+        const nuevaVentana = window.open("", "_blank");
+        nuevaVentana.document.write(contenido);
+        nuevaVentana.document.close();
+    }
+</script>
+
+</body>
+</html>
