@@ -14,7 +14,7 @@
         button.btn-main { background-color: #008497; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 5px; cursor: pointer; display: block; width: 100%; font-weight: bold; }
         button.btn-main:hover { background-color: #006f80; }
 
-        /* Panel de Logs para ver errores en pantalla */
+        /* Panel de Logs */
         #status-log { 
             margin-top: 15px; padding: 10px; background: #fff3f3; 
             border: 1px solid #ffcdd2; border-radius: 5px; color: #d32f2f; 
@@ -51,14 +51,12 @@
 
 <div class="container">
     <h1>Generador de Vistas Previas</h1>
-    <p style="font-size: 14px; color: #666; text-align: center;">Pega el resultado completo (asegúrate que incluya "Cuit:" al principio).</p>
+    <p style="font-size: 14px; color: #666; text-align: center;">Pega el resultado completo (incluyendo cabeceras, el sistema las ignorará).</p>
 
     <textarea id="inputData" placeholder="Ej: Cuit: 20-60448135-0|email|Nombre..."></textarea>
     <button class="btn-main" onclick="procesarDatos()">Procesar Datos</button>
 
-    <!-- Aquí aparecerán avisos si algo sale mal -->
     <div id="status-log"></div>
-
     <div id="results-area"></div>
 </div>
 
@@ -122,19 +120,23 @@
         const resultsArea = document.getElementById('results-area');
         const statusLog = document.getElementById('status-log');
         
-        // Limpieza inicial
         resultsArea.innerHTML = ""; 
         statusLog.innerHTML = "";
         statusLog.style.display = 'none';
 
         if (!rawInput.trim()) { alert("Pega los datos primero."); return; }
 
-        // Hacemos el split siendo más flexibles con mayúsculas/minúsculas
-        // El 'filter' elimina las partes vacías que quedan antes del primer match
-        const registros = rawInput.split(/(?=Cuit:)/gi).filter(r => r.trim().length > 5);
+        // FILTRO MEJORADO:
+        // 1. Dividimos por donde dice "Cuit:"
+        // 2. Filtramos vacíos
+        // 3. Filtramos estrictamente lo que no empiece con "Cuit:" (esto elimina la cabecera)
+        const registros = rawInput
+            .split(/(?=Cuit:)/gi)
+            .filter(r => r.trim().length > 5)
+            .filter(r => r.trim().toLowerCase().startsWith("cuit:")); // <--- ESTO ELIMINA LA CABECERA
 
         if (registros.length === 0) {
-            logError("No se encontró ningún registro que empiece con 'Cuit:'. Verifica que copiaste toda la línea.");
+            logError("No se encontraron registros válidos que empiecen con 'Cuit:'.");
             return;
         }
 
@@ -143,34 +145,32 @@
         registros.forEach((registro, index) => {
             const partes = registro.split('|');
             
-            // Validación de integridad
+            // Validación extra: Si por alguna razón pasó la cabecera (ej: si escribieran 'Cuit:' en la cabecera)
+            // verificamos que la segunda columna sea un email y no la palabra "email"
+            if (partes[1] && partes[1].toLowerCase() === "email") return;
+
             if (partes.length < 5) {
-                logError(`Registro #${index + 1} ignorado: Parece incompleto (faltan columnas).`);
+                logError(`Registro #${index + 1} ignorado: incompleto.`);
                 return;
             }
 
-            // Datos básicos (Asumiendo indices fijos según tu ejemplo)
-            // 0: Cuit, 2: Nombre, 8 en adelante: HTML
             const cuitStr = partes[0].trim();
             const nombre = partes[2] ? partes[2].trim() : "Desconocido";
             
-            // Si falta el HTML, avisamos
             if (partes.length < 8) {
-                 logError(`El registro de ${nombre} no tiene la parte del HTML final.`);
+                 logError(`El registro de ${nombre} no tiene datos HTML.`);
                  return;
             }
 
             const datosHtml = partes.slice(8).join('|').trim(); 
 
-            // --- Extracción de Datos (Scraping) ---
+            // Scraping interno
             const tempDiv = document.createElement('div');
-            // Envolvemos en table para que no se borren los TR/TD
             tempDiv.innerHTML = '<table>' + datosHtml + '</table>';
 
-            // 1. Extraer Objeto(s)
+            // 1. Objetos
             const celdasGris = tempDiv.querySelectorAll("td.gris");
             let objetosTexto = [];
-
             celdasGris.forEach(celda => {
                  const texto = celda.innerText.trim();
                  if (texto.includes("Débito") || texto.includes("Ingresar") || texto === "") return;
@@ -180,18 +180,20 @@
             const objetoDisplay = objetosTexto.length > 0 ? objetosTexto.join(" <br> ") : "No detectado";
 
             // 2. Links
-            const links = tempDiv.querySelectorAll("a");
             let urlPdf = null;
-            links.forEach(l => { if(l.href.includes("pdfDeuda")) urlPdf = l.href; });
+            tempDiv.querySelectorAll("a").forEach(l => { if(l.href.includes("pdfDeuda")) urlPdf = l.href; });
 
-            const imgs = tempDiv.querySelectorAll("img");
             let urlQr = null;
-            imgs.forEach(i => { if(i.src.includes("PagoQR")) urlQr = i.src; });
+            tempDiv.querySelectorAll("img").forEach(i => { if(i.src.includes("PagoQR")) urlQr = i.src; });
 
-            // --- Generar Tarjeta ---
+            // Generar HTML
             const div = document.createElement('div');
             div.className = 'result-card';
-            
+            div.dataset.index = procesados; 
+            div.dataset.nombre = nombre;
+            div.dataset.cuit = cuitStr;
+            div.dataset.html = encodeURIComponent(datosHtml);
+
             const htmlPdf = urlPdf ? `<a href="${urlPdf}" target="_blank" class="icon-pdf">PDF Boleta</a>` : `<span class="no-data">Sin PDF</span>`;
             const htmlQr = urlQr ? `<a href="${urlQr}" target="_blank" class="icon-qr">Imagen QR</a>` : `<span class="no-data">Sin QR</span>`;
 
@@ -210,23 +212,12 @@
                 </div>
             `;
             
-            // Usamos un índice propio 'procesados' para no mezclar con los ignorados
-            div.dataset.index = procesados; 
-            div.dataset.nombre = nombre;
-            div.dataset.cuit = cuitStr;
-            div.dataset.html = encodeURIComponent(datosHtml);
-            
             resultsArea.appendChild(div);
             procesados++;
         });
-
-        if (procesados === 0 && registros.length > 0) {
-            logError("Se detectaron datos pero ninguno tenía el formato correcto (faltan pipes '|' o columnas).");
-        }
     }
 
     function abrirBoleta(index) {
-        // Buscamos la tarjeta correcta usando el data-index
         const card = document.querySelector(`.result-card[data-index='${index}']`);
         if (!card) return;
 
